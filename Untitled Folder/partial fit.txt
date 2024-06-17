@@ -1,0 +1,169 @@
+Per aggiungere la funzionalità di fit parziale nella tua classe `HybridNaiveBayesClassifier`, puoi utilizzare i metodi `partial_fit` disponibili nei modelli Naive Bayes di scikit-learn. Il metodo `partial_fit` ti permette di aggiornare il modello con nuovi dati senza dover riaddestrare il modello da zero.
+
+Ecco come puoi incorporare questa funzionalità nella tua classe:
+
+1. Aggiungere un metodo `partial_fit` alla tua classe.
+2. Assicurarti di gestire correttamente la pre-elaborazione dei nuovi dati.
+
+Ecco il codice aggiornato:
+
+```python
+import numpy as np
+import pandas as pd
+from sklearn.naive_bayes import GaussianNB, BernoulliNB, CategoricalNB
+from sklearn.preprocessing import StandardScaler, OrdinalEncoder
+from sklearn.compose import ColumnTransformer
+
+class HybridNaiveBayesClassifier:
+    def __init__(self, quantitative_features, binary_features, nominal_features):
+        self.quantitative_features = quantitative_features
+        self.binary_features = binary_features
+        self.nominal_features = nominal_features
+        
+        self.gaussian_nb = GaussianNB()
+        self.bernoulli_nb = BernoulliNB()
+        self.categorical_nb = CategoricalNB()
+        
+        self.preprocessor = ColumnTransformer(
+            transformers=[
+                ('num', StandardScaler(), quantitative_features),
+                ('bin', OrdinalEncoder(), binary_features),
+                ('cat', OrdinalEncoder(), nominal_features)
+            ],
+            remainder='passthrough'  # Per mantenere tutte le colonne
+        )
+    
+    def fit(self, X, y):
+        # Preprocessiamo i dati
+        X_preprocessed = self.preprocessor.fit_transform(X)
+        
+        # Otteniamo i nomi delle colonne trasformate
+        col_names = self.quantitative_features + self.binary_features + self.nominal_features
+        
+        # Convertiamo in DataFrame per facilitare l'indexing
+        X_preprocessed_df = pd.DataFrame(X_preprocessed, columns=col_names)
+        
+        # Separiamo i dati preprocessati per tipo di feature
+        X_continuous = X_preprocessed_df[self.quantitative_features]
+        X_binary = X_preprocessed_df[self.binary_features]
+        X_nominal = X_preprocessed_df[self.nominal_features]
+
+        self.gaussian_nb.fit(X_continuous, y)
+        self.bernoulli_nb.fit(X_binary, y)
+        self.categorical_nb.fit(X_nominal, y)
+    
+    def partial_fit(self, X, y, classes=None):
+        # Preprocessiamo i dati
+        X_preprocessed = self.preprocessor.transform(X)
+        
+        # Otteniamo i nomi delle colonne trasformate
+        col_names = self.quantitative_features + self.binary_features + self.nominal_features
+        
+        # Convertiamo in DataFrame per facilitare l'indexing
+        X_preprocessed_df = pd.DataFrame(X_preprocessed, columns=col_names)
+        
+        # Separiamo i dati preprocessati per tipo di feature
+        X_continuous = X_preprocessed_df[self.quantitative_features]
+        X_binary = X_preprocessed_df[self.binary_features]
+        X_nominal = X_preprocessed_df[self.nominal_features]
+
+        if classes is not None:
+            self.gaussian_nb.partial_fit(X_continuous, y, classes=classes)
+            self.bernoulli_nb.partial_fit(X_binary, y, classes=classes)
+            self.categorical_nb.partial_fit(X_nominal, y, classes=classes)
+        else:
+            self.gaussian_nb.partial_fit(X_continuous, y)
+            self.bernoulli_nb.partial_fit(X_binary, y)
+            self.categorical_nb.partial_fit(X_nominal, y)
+    
+    def predict(self, X):
+        # Preprocessiamo i dati
+        X_preprocessed = self.preprocessor.transform(X)
+
+        # Otteniamo i nomi delle colonne trasformate
+        col_names = self.quantitative_features + self.binary_features + self.nominal_features
+
+        # Convertiamo in DataFrame per facilitare l'indexing
+        X_preprocessed_df = pd.DataFrame(X_preprocessed, columns=col_names)
+
+        # Separiamo i dati preprocessati per tipo di feature
+        X_continuous = X_preprocessed_df[self.quantitative_features]
+        X_binary = X_preprocessed_df[self.binary_features]
+        X_nominal = X_preprocessed_df[self.nominal_features]
+
+        # Predizioni separate dai modelli
+        y_pred_continuous = self.gaussian_nb.predict_proba(X_continuous)
+        y_pred_binary = self.bernoulli_nb.predict_proba(X_binary)
+        y_pred_nominal = self.categorical_nb.predict_proba(X_nominal)
+
+        # Moltiplichiamo le probabilità
+        prods = y_pred_continuous * y_pred_binary * y_pred_nominal
+        
+        # Restituiamo la classe con la probabilità massima
+        return np.argmax(prods, axis=1)
+    
+    def predict_proba(self, X):
+        # Preprocessiamo i dati
+        X_preprocessed = self.preprocessor.transform(X)
+
+        # Otteniamo i nomi delle colonne trasformate
+        col_names = self.quantitative_features + self.binary_features + self.nominal_features
+
+        # Convertiamo in DataFrame per facilitare l'indexing
+        X_preprocessed_df = pd.DataFrame(X_preprocessed, columns=col_names)
+
+        # Separiamo i dati preprocessati per tipo di feature
+        X_continuous = X_preprocessed_df[self.quantitative_features]
+        X_binary = X_preprocessed_df[self.binary_features]
+        X_nominal = X_preprocessed_df[self.nominal_features]
+
+        # Predizioni separate dai modelli
+        y_pred_continuous = self.gaussian_nb.predict_proba(X_continuous)
+        y_pred_binary = self.bernoulli_nb.predict_proba(X_binary)
+        y_pred_nominal = self.categorical_nb.predict_proba(X_nominal)
+
+        # Moltiplichiamo le probabilità
+        prods = y_pred_continuous * y_pred_binary * y_pred_nominal
+        
+        # Normalizziamo le probabilità
+        return prods / np.sum(prods, axis=1, keepdims=True)
+```
+
+### Spiegazione del Metodo `partial_fit`
+
+1. **Preprocessing dei Dati**:
+   - Come nel metodo `fit`, preprocessiamo i dati utilizzando il `ColumnTransformer`.
+
+2. **Conversione in DataFrame**:
+   - Convertiamo il risultato preprocessato in un DataFrame per facilitare l'indexing.
+
+3. **Separazione delle Caratteristiche**:
+   - Separiamo i dati preprocessati in base ai tipi di caratteristiche (quantitative, binarie, nominali).
+
+4. **Aggiornamento dei Modelli**:
+   - Utilizziamo `partial_fit` su ciascuno dei modelli (GaussianNB, BernoulliNB, CategoricalNB).
+   - Se vengono forniti i `classes`, li passiamo al metodo `partial_fit` per consentire l'aggiornamento incrementale.
+
+### Utilizzo del Metodo `partial_fit`
+
+Per utilizzare il metodo `partial_fit`, puoi chiamarlo con nuovi dati e le relative etichette. Se è la prima volta che chiami `partial_fit`, devi fornire anche l'elenco delle classi:
+
+```python
+# Supponiamo di avere nuovi dati
+new_data = {
+    'age': [28, 55],
+    'salary': [62000, 130000],
+    'gender': ['female', 'male'],
+    'owns_house': [1, 0],
+    'education': ['master', 'phd']
+}
+new_df = pd.DataFrame(new_data)
+new_y = [0, 1]
+
+# Chiamiamo partial_fit con i nuovi dati
+classifier.partial_fit(new_df, new_y, classes=[0, 1])
+```
+
+In questo modo, potrai aggiornare il tuo modello con nuovi dati senza dover riaddestrare tutto da capo.
+
+ Generato da ProfAI - https://prof.profession.ai/

@@ -1,0 +1,121 @@
+Certo, posso aiutarti a creare una classe personalizzata che incorpora i diversi modelli Naive Bayes per gestire le diverse tipi di feature. Questa classe avrà metodi per l'allenamento (`fit`) e la predizione (`predict`). 
+
+Ecco un esempio di come puoi implementare questa classe:
+
+```python
+import numpy as np
+from sklearn.naive_bayes import GaussianNB, BernoulliNB, CategoricalNB
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.compose import ColumnTransformer
+
+class HybridNaiveBayesClassifier:
+    def __init__(self, continuous_features, binary_features, nominal_features):
+        self.continuous_features = continuous_features
+        self.binary_features = binary_features
+        self.nominal_features = nominal_features
+        
+        self.gaussian_nb = GaussianNB()
+        self.bernoulli_nb = BernoulliNB()
+        self.categorical_nb = CategoricalNB()
+        
+        self.preprocessor = ColumnTransformer(
+            transformers=[
+                ('num', StandardScaler(), continuous_features),
+                ('bin', 'passthrough', binary_features),
+                ('cat', OneHotEncoder(), nominal_features)
+            ]
+        )
+    
+    def fit(self, X, y):
+        X_preprocessed = self.preprocessor.fit_transform(X)
+
+        # Separare i dati preprocessati per tipo di feature
+        X_continuous = X_preprocessed[:, :len(self.continuous_features)]
+        X_binary = X_preprocessed[:, len(self.continuous_features):len(self.continuous_features) + len(self.binary_features)]
+        X_nominal = X_preprocessed[:, len(self.continuous_features) + len(self.binary_features):]
+
+        self.gaussian_nb.fit(X_continuous, y)
+        self.bernoulli_nb.fit(X_binary, y)
+        self.categorical_nb.fit(X_nominal, y)
+    
+    def predict(self, X):
+        X_preprocessed = self.preprocessor.transform(X)
+
+        # Separare i dati preprocessati per tipo di feature
+        X_continuous = X_preprocessed[:, :len(self.continuous_features)]
+        X_binary = X_preprocessed[:, len(self.continuous_features):len(self.continuous_features) + len(self.binary_features)]
+        X_nominal = X_preprocessed[:, len(self.continuous_features) + len(self.binary_features):]
+
+        # Predizioni separate dai modelli
+        y_pred_continuous = self.gaussian_nb.predict_proba(X_continuous)
+        y_pred_binary = self.bernoulli_nb.predict_proba(X_binary)
+        y_pred_nominal = self.categorical_nb.predict_proba(X_nominal)
+
+        # Sommare i log delle probabilità
+        logsum = np.log(y_pred_continuous) + np.log(y_pred_binary) + np.log(y_pred_nominal)
+        
+        # Restituire la classe con la probabilità massima
+        return np.argmax(logsum, axis=1)
+    
+    def predict_proba(self, X):
+        X_preprocessed = self.preprocessor.transform(X)
+
+        # Separare i dati preprocessati per tipo di feature
+        X_continuous = X_preprocessed[:, :len(self.continuous_features)]
+        X_binary = X_preprocessed[:, len(self.continuous_features):len(self.continuous_features) + len(self.binary_features)]
+        X_nominal = X_preprocessed[:, len(self.continuous_features) + len(self.binary_features):]
+
+        # Predizioni separate dai modelli
+        y_pred_continuous = self.gaussian_nb.predict_proba(X_continuous)
+        y_pred_binary = self.bernoulli_nb.predict_proba(X_binary)
+        y_pred_nominal = self.categorical_nb.predict_proba(X_nominal)
+
+        # Sommare i log delle probabilità
+        logsum = np.log(y_pred_continuous) + np.log(y_pred_binary) + np.log(y_pred_nominal)
+        
+        # Convertire log-probabilità a probabilità
+        return np.exp(logsum) / np.sum(np.exp(logsum), axis=1, keepdims=True)
+
+# Esempio di utilizzo
+# Supponiamo che il tuo dataset abbia le seguenti caratteristiche
+# df è il tuo dataframe pandas
+# target è il nome della colonna target
+
+# Dividi il dataset nelle sue feature e nel target
+X = df.drop(columns=['target'])
+y = df['target']
+
+# Identifica i tipi di feature
+continuous_features = ['feature1', 'feature2']  # sostituisci con i nomi delle tue feature continue
+binary_features = ['feature3', 'feature4']     # sostituisci con i nomi delle tue feature binarie
+nominal_features = ['feature5', 'feature6']    # sostituisci con i nomi delle tue feature nominali
+
+# Inizializza il classificatore
+hybrid_nb = HybridNaiveBayesClassifier(continuous_features, binary_features, nominal_features)
+
+# Dividi il dataset in training e test set
+from sklearn.model_selection import train_test_split
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+
+# Adatta il modello combinato sui dati di training
+hybrid_nb.fit(X_train, y_train)
+
+# Fai predizioni sui dati di test
+y_pred = hybrid_nb.predict(X_test)
+
+# Valuta il modello
+from sklearn.metrics import accuracy_score
+accuracy = accuracy_score(y_test, y_pred)
+print(f'Accuracy: {accuracy}')
+```
+
+### Spiegazione del Codice
+
+1. **Inizializzazione**: La classe `HybridNaiveBayesClassifier` è inizializzata con i nomi delle feature continue, binarie e nominali. Viene creato un oggetto `ColumnTransformer` per preprocessare le feature in base al loro tipo.
+2. **Fit**: Il metodo `fit` preprocessa le feature e separa i dati preprocessati in base al tipo. Poi allena i tre modelli Naive Bayes (`GaussianNB`, `BernoulliNB`, `CategoricalNB`) sui rispettivi dati.
+3. **Predict**: Il metodo `predict` preprocessa le feature, separa i dati preprocessati e calcola le probabilità predette per ciascun tipo di feature. Le probabilità vengono combinate sommando i logaritmi e viene restituita la classe con la probabilità massima.
+4. **Predict Proba**: Il metodo `predict_proba` restituisce le probabilità predette per ciascuna classe.
+
+In questo modo, hai creato una classe personalizzata che gestisce il processo di allenamento e predizione per un classificatore bayesiano ibrido senza utilizzare pipeline e feature union di `scikit-learn`.
+
+ Generato da ProfAI - https://prof.profession.ai/
