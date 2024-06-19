@@ -5,7 +5,20 @@ from sklearn.preprocessing import StandardScaler, OrdinalEncoder
 from sklearn.compose import ColumnTransformer
 
 class HybridNaiveBayesClassifier:
+    """
+    This class implements a Hybrid Naive Bayes classifier that combines
+    Gaussian Naive Bayes, Bernoulli Naive Bayes, and Categorical Naive Bayes
+    for classification tasks.
+    """
+    
     def __init__(self, quantitative_features, binary_features, nominal_features):
+        """
+        This function initializes the classifier with the following parameters:
+
+        - quantitative_features: A list of column names containing quantitative data.
+        - binary_features: A list of column names containing binary data.
+        - nominal_features: A list of column names containing nominal data.
+        """
         self.quantitative_features = quantitative_features
         self.binary_features = binary_features
         self.nominal_features = nominal_features
@@ -26,15 +39,21 @@ class HybridNaiveBayesClassifier:
         )
     
     def fit(self, X, y):
+        """
+        This function fits the classifier to the training data.
+
+        - X: The training data as a pandas DataFrame.
+        - y: The target labels as a pandas Series or NumPy array.
+        """
         X_preprocessed = self.preprocessor.fit_transform(X)
         
-         # Otteniamo i nomi delle colonne trasformate
+         # Get the names of the transformed columns
         col_names = self.quantitative_features + self.binary_features + self.nominal_features
 
-        # Convertiamo in DataFrame per facilitare l'indexing
+        # Convert to DataFrame for easier indexing
         X_preprocessed_df = pd.DataFrame(X_preprocessed, columns=col_names)
 
-        # Separare i dati preprocessati per tipo di feature
+        # Separate preprocessed data by feature type
         X_continuous = X_preprocessed_df[self.quantitative_features]
         X_binary = X_preprocessed_df[self.binary_features]
         X_nominal = X_preprocessed_df[self.nominal_features]
@@ -44,64 +63,67 @@ class HybridNaiveBayesClassifier:
         self.categorical_nb.fit(X_nominal, y)
     
     def predict(self, X):
+        """
+        This function predicts the class labels for new data points.
+
+        - X: The data to predict on as a pandas DataFrame.
+
+        Returns:
+          A NumPy array containing the predicted class labels.
+        """
         X_preprocessed = self.preprocessor.transform(X)
         
-         # Otteniamo i nomi delle colonne trasformate
+         # Get the names of the transformed columns
         col_names = self.quantitative_features + self.binary_features + self.nominal_features
 
-        # Convertiamo in DataFrame per facilitare l'indexing
+        # Convert to DataFrame for easier indexing
         X_preprocessed_df = pd.DataFrame(X_preprocessed, columns=col_names)
 
-        # Separare i dati preprocessati per tipo di feature
+        # Separate preprocessed data by feature type
         X_continuous = X_preprocessed_df[self.quantitative_features]
         X_binary = X_preprocessed_df[self.binary_features]
         X_nominal = X_preprocessed_df[self.nominal_features]
 
-        # Predizioni separate dai modelli
-        y_pred_continuous = self.gaussian_nb.predict_proba(X_continuous)
-        y_pred_binary = self.bernoulli_nb.predict_proba(X_binary)
-        y_pred_nominal = self.categorical_nb.predict_proba(X_nominal)
+        #  Separate log probabilities from each model
+        y_log_prob_continuous = self.gaussian_nb.predict_log_proba(X_continuous)
+        y_log_prob_binary = self.bernoulli_nb.predict_log_proba(X_binary)
+        y_log_prob_nominal = self.categorical_nb.predict_log_proba(X_nominal)
 
-        # Moltiplicare le probabilità
-#         prods = y_pred_continuous * y_pred_binary * y_pred_nominal
+        # Sum the log probabilities
+        logsum = y_log_prob_continuous + y_log_prob_binary + y_log_prob_nominal
         
-        # Restituire la classe con la probabilità massima
-#         return np.argmax(prods, axis=1)
-
-        # Sommare i log delle probabilità
-        logsum = np.log(y_pred_continuous) + np.log(y_pred_binary) + np.log(y_pred_nominal)
-        
-        # Restituire la classe con la probabilità massima
+        # Return the class with the maximum probability
         return np.argmax(logsum, axis=1)
     
     def predict_proba(self, X):
+         """
+        This function predicts the probability of each class for new data points.
+        - X: The data to predict on as a pandas DataFrame.
+
+        Returns:
+          A NumPy array containing the predicted probabilities for each class.
+        """
         X_preprocessed = self.preprocessor.transform(X)
         
-         # Otteniamo i nomi delle colonne trasformate
+         # Get the names of the transformed columns
         col_names = self.quantitative_features + self.binary_features + self.nominal_features
 
-        # Convertiamo in DataFrame per facilitare l'indexing
+        # Convert to DataFrame for easier indexing
         X_preprocessed_df = pd.DataFrame(X_preprocessed, columns=col_names)
 
-        # Separare i dati preprocessati per tipo di feature
+        # Separate preprocessed data by feature type
         X_continuous = X_preprocessed_df[self.quantitative_features]
         X_binary = X_preprocessed_df[self.binary_features]
         X_nominal = X_preprocessed_df[self.nominal_features]
 
-        # Predizioni separate dai modelli
-        y_pred_continuous = self.gaussian_nb.predict_proba(X_continuous)
-        y_pred_binary = self.bernoulli_nb.predict_proba(X_binary)
-        y_pred_nominal = self.categorical_nb.predict_proba(X_nominal)
+        #  Separate log probabilities from each model
+        y_log_prob_continuous = self.gaussian_nb.predict_log_proba(X_continuous)
+        y_log_prob_binary = self.bernoulli_nb.predict_log_proba(X_binary)
+        y_log_prob_nominal = self.categorical_nb.predict_log_proba(X_nominal)
 
-        # Moltiplicare le probabilità
-#         prods = y_pred_continuous * y_pred_binary * y_pred_nominal
+         # Sum the log probabilities
+        logsum = y_log_prob_continuous + y_log_prob_binary + y_log_prob_nominal
         
-        # Normalizzare le probabilità
-#         return prods / np.sum(prods, axis=1, keepdims=True)
-
-         # Sommare i log delle probabilità
-        logsum = np.log(y_pred_continuous) + np.log(y_pred_binary) + np.log(y_pred_nominal)
-        
-        # Convertire log-probabilità a probabilità
+        # Convert log probabilities to probabilities
         return np.exp(logsum) / np.sum(np.exp(logsum), axis=1, keepdims=True)
 
