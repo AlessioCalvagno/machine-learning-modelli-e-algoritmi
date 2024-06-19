@@ -63,10 +63,16 @@ class HybridNaiveBayesClassifier:
         y_pred_nominal = self.categorical_nb.predict_proba(X_nominal)
 
         # Moltiplicare le probabilità
-        prods = y_pred_continuous * y_pred_binary * y_pred_nominal
+#         prods = y_pred_continuous * y_pred_binary * y_pred_nominal
         
         # Restituire la classe con la probabilità massima
-        return np.argmax(prods, axis=1)
+#         return np.argmax(prods, axis=1)
+
+        # Sommare i log delle probabilità
+        logsum = np.log(y_pred_continuous) + np.log(y_pred_binary) + np.log(y_pred_nominal)
+        
+        # Restituire la classe con la probabilità massima
+        return np.argmax(logsum, axis=1)
     
     def predict_proba(self, X):
         X_preprocessed = self.preprocessor.transform(X)
@@ -88,7 +94,14 @@ class HybridNaiveBayesClassifier:
         y_pred_nominal = self.categorical_nb.predict_proba(X_nominal)
 
         # Moltiplicare le probabilità
-        prods = y_pred_continuous * y_pred_binary * y_pred_nominal
+#         prods = y_pred_continuous * y_pred_binary * y_pred_nominal
         
         # Normalizzare le probabilità
-        return prods / np.sum(prods, axis=1, keepdims=True)
+#         return prods / np.sum(prods, axis=1, keepdims=True)
+
+         # Sommare i log delle probabilità
+        logsum = np.log(y_pred_continuous) + np.log(y_pred_binary) + np.log(y_pred_nominal)
+        
+        # Convertire log-probabilità a probabilità
+        return np.exp(logsum) / np.sum(np.exp(logsum), axis=1, keepdims=True)
+
